@@ -1,0 +1,99 @@
+// ==UserScript==
+// @name         Add Saved Items to Cart
+// @version      0.6
+// @description  Repeatedly refresh a given "saved items" page, look for specific "Add to Cart" buttons, click them if present, and make a lot of noise on success.
+// @match        https://www.amazon.com/gp/registry/wishlist/*
+// @match        https://www.amazon.com/hz/wishlist/ls/*
+// @grant        none
+// @run-at       document-idle
+// @require      https://cdnjs.cloudflare.com/ajax/libs/howler/2.1.3/howler.min.js#sha256-/Q4ZPy6sMbk627wHxuaWSIXS1y7D2KnMhsm/+od7ptE=
+// ==/UserScript==
+
+(function() {
+    'use strict';
+
+    const SELECTORS = [
+        {
+            site: 'Amazon',
+            urls: ['https://www.amazon.com/gp/registry/wishlist/', 'https://www.amazon.com/hz/wishlist/ls/'],
+            selector: 'a.a-button-text[data-csa-c-action="pab:list_c_wl_lv_ov_lig_pab_add-to-cart"]',
+            loadWait: 5,
+            cooldown: 20,
+            active: true,
+        },
+    ];
+
+    var readySound = new window.Howl({
+      src: ['https://cdn.freesound.org/previews/187/187404_635158-lq.mp3'],
+      autoplay: false,
+      loop: true,
+      volume: 1.0,
+    });
+
+    // Scan the page for the provided selector and "click" them if present.
+    function triggerClicks(sel) {
+        var anyClicked = false;
+        const buttons = document.querySelectorAll(sel.selector);
+
+        // No available "Add to Cart" buttons. Cool down and refresh.
+        if (!buttons.length) {
+            console.log(`${sel.site}: No active "Add to Cart" buttons.`);
+            return anyClicked;
+        }
+
+        buttons.forEach((b) => {
+            var clickEvent = document.createEvent('MouseEvents');
+            clickEvent.initEvent('click', true, true);
+            b.dispatchEvent(clickEvent);
+            console.log(`${sel.site}: Clicked "Add to Cart" button.`);
+            anyClicked = true;
+        });
+
+        return anyClicked;
+    }
+
+    function refreshInSecs(secs) {
+        console.log(`Scheduling page refresh in ${secs} secs.`);
+        window.setTimeout(() => {
+            window.location.reload(true);
+        }, secs * 1000);
+    }
+
+    function waitToClick(sel, callback) {
+        console.log(`Scheduling clicks for ${sel.site}.`);
+        window.setTimeout(() => {
+            callback(sel);
+        }, sel.loadWait * 1000);
+    }
+
+    function locationStartsWithAnyOfUrls(urls) {
+        return urls.reduce((acc, url) => {
+            return acc || window.location.href.startsWith(url);
+        }, false);
+    }
+
+
+    function openGmailCompose() {
+        let to = 'bianzhengyang95@gmail.com';
+        let subject = 'Monster is back!!!';
+        let body = 'BuyBuyBuy';
+
+        let gmailComposeUrl = `https://mail.google.com/mail/?view=cm&fs=1&to=${encodeURIComponent(to)}&su=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+
+        window.open(gmailComposeUrl, '_blank');
+    }
+
+    // function main()
+    SELECTORS.forEach((sel) => {
+        if (sel.active && locationStartsWithAnyOfUrls(sel.urls)) {
+            waitToClick(sel, (sel) => {
+                if (triggerClicks(sel)) {
+                    readySound.play();
+                } else if (sel.cooldown) {
+                    refreshInSecs(sel.cooldown);
+                }
+            });
+        }
+    });
+
+})();
